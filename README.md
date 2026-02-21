@@ -4,9 +4,9 @@ A Version control for my Roblox Test Place, for now we're trying to make a Tower
 
 # What i use
 
-*Roblox Studio
-*Rojo
-*Claude.ai <- (Always know my mistakes.)
+* Roblox Studio
+* Rojo
+* Claude.ai <- (Always know my mistakes.)
 
 # Work Plan
 
