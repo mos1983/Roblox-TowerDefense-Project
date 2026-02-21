@@ -15,5 +15,11 @@ return {
         HP = 120,
         Speed = 2,
         Reward = 40
+    },
+
+    ["nRat"] = {
+        HP = 14,
+        Speed = 4,
+        Reward = 12
     }
 }

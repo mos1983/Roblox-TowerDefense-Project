@@ -6,7 +6,7 @@ local CurrencyService = {} -- เก็บเป็น Table
 
 local playerCurrency: { [Player]: number } = {}
 
-local startingCurrency = 600 -- เงินเริ่มต้น Edit ได้
+local startingCurrency = 200 -- เงินเริ่มต้น Edit ได้
 
 function CurrencyService.getCurrency(player: Player): number -- Function ในการส่ง ค่าเงิน ของ Player นั้นๆกลับไปหาผู้ส่ง
     return playerCurrency[player] or 0

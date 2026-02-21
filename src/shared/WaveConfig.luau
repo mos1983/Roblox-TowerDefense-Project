@@ -9,13 +9,13 @@ return {
 
     waves = {
         [1] = {
-            { enemyName = "TestingEnemy2", count = 5, interval = 1.5 },
+            { enemyName = "nRat", count = 5, interval = 1.5 },
         },
         [2] = {
-            { enemyName = "TestingEnemy2", count = 7, interval = 1.5 },
+            { enemyName = "nRat", count = 7, interval = 1.5 },
         },
         [3] = {
-            { enemyName = "TestingEnemy2", count = 6, interval = 1.5 },
+            { enemyName = "nRat", count = 6, interval = 1.5 },
             { enemyName = "TestingEnemy3", count = 1, interval = 10 },
         },
         [4] = {
