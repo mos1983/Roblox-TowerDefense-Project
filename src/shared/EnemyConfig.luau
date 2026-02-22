@@ -1,25 +1,31 @@
 return {
     ["TestingEnemy"] = {
         HP = 4000,
-        Speed = 33.33,
-        Reward = 100000
+        Speed = 333.33,
+        Reward = 2166
     },
 
     ["TestingEnemy2"] = {
-        HP = 14,
+        HP = 5,
         Speed = 4,
-        Reward = 12
+        Reward = 7
     },
 
     ["TestingEnemy3"] = {
-        HP = 120,
+        HP = 5,
         Speed = 2,
-        Reward = 40
+        Reward = 6
     },
 
     ["nRat"] = {
-        HP = 14,
+        HP = 5,
         Speed = 4,
-        Reward = 12
+        Reward = 7
+    },
+
+    ["JetRat"] = {
+        HP = 4,
+        Speed = 15,
+        Reward = 11
     }
 }

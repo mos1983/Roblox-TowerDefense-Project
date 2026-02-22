@@ -12,6 +12,8 @@ local GameMap = workspace:WaitForChild("GameMapTemplat1")
 local PlacementZone = GameMap:WaitForChild("SpawnPoints")
 local PlacedTowers = workspace:WaitForChild("PlacedTowers")
 
+local TowerAttack = Remotes:WaitForChild("TowerAttack")
+
 local towerRadius = 3 -- ระยะห่างระหว่าง Tower
 
 local function isInZone(position: Vector3): boolean -- function ที่เช็คว่า Tower อยู่ใน PlacementZone หรือป่าว
@@ -87,6 +89,10 @@ local function startAttackLoop(tower: Model, owner: Player)
             if target then
                 faceTarget(tower, target)
                 EnemyService.takeDamage(target, damage, owner)
+
+                local config = TowerConfig[towerName]
+
+                TowerAttack:FireAllClients(tower, target, config.Role)
             end
 
             task.wait(cooldown)

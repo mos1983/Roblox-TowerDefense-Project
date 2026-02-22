@@ -3,10 +3,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local UpdateBase = Remotes:WaitForChild("UpdateBase")
+local CameraShake = Remotes:WaitForChild("CameraShake")
 
 local BaseService = {}
 
-local maxHP = 1000
+local maxHP = 200
 local currentHP = maxHP
 
 local basePart = workspace:WaitForChild("GameMapTemplat1"):WaitForChild("BasePart")
@@ -19,6 +20,7 @@ function BaseService.takeDamage(amount: number)
     currentHP = math.max(0, currentHP - amount)
 
     UpdateBase:FireAllClients(currentHP, maxHP)
+    CameraShake:FireAllClients(amount)
     print(`[Base] HP: {currentHP}/{maxHP}`)
 
     if currentHP <= 0 then
