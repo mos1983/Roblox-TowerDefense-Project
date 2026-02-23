@@ -47,6 +47,7 @@ function WaveService.startWave()
     currentWave += 1
     isWaveActive = true
     activeEnemies = 0
+    local isSpawning = true
 
     local waveData = WaveConfig.waves[currentWave]
     if not waveData then
@@ -66,6 +67,7 @@ function WaveService.startWave()
                 task.wait(group.interval)
             end
         end
+        isSpawning = false
     end)
 
     local timeleft = WaveConfig.waveDuration
@@ -74,7 +76,7 @@ function WaveService.startWave()
     for i = timeleft, 1, -1 do
         UpdateCountdown:FireAllClients(i, false)
 
-        if activeEnemies <= 0 and i > WaveConfig.shortCountdown then
+        if not isSpawning and activeEnemies <= 0 and i > WaveConfig.shortCountdown then
             enemiesFinishedEarly = true
             break
         end

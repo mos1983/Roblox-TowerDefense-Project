@@ -1,7 +1,7 @@
 return {
     [1] = "TestingTower",
     [2] = "Beetle",
-    [3] = nil,
-    [4] = nil,
+    [3] = "TestingTowerWater",
+    [4] = "TestingTowerTrap",
     [5] = nil,
 }

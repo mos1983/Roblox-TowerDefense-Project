@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local SoundService = game:GetService("SoundService")
 
 local player = Players.LocalPlayer
 local mouse = player:GetMouse()
@@ -12,6 +13,9 @@ local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local PlaceTower = Remotes:WaitForChild("PlaceTower")
 local TowerModels = ReplicatedStorage:WaitForChild("TowerModels")
 local TowerConfig = require(ReplicatedStorage.Shared.TowerConfig)
+local SellTower = Remotes:WaitForChild("SellTower")
+local UpgradeTower = Remotes:WaitForChild("UpgradeTower")
+local UpgradeConfig = require(ReplicatedStorage.Shared.UpgradeConfig)
 
 -- State ของ Tower ที่ Highlight(Selected)
 local selectedTower: string? = nil -- ชื่อ Tower ที่ Highlight
@@ -22,7 +26,29 @@ local player = Players.LocalPlayer
 local playerGui = player.PlayerGui
 local screenGui = playerGui:WaitForChild("ScreenGui")
 local hotbar = screenGui:WaitForChild("Hotbar")
+
+local screenGui1 = playerGui:WaitForChild("ScreenGui1")
+local towerPanel = screenGui1:WaitForChild("Frame")
+local sellButton = towerPanel:WaitForChild("Sell")
+local upgradeButton = towerPanel:WaitForChild("Upgrade")
+local nameLabel = towerPanel:WaitForChild("Name")
+local lvLabel = towerPanel:WaitForChild("LV")
+local totalLabel = towerPanel:WaitForChild("Total")
+local attackLabel = towerPanel:WaitForChild("Attack")
+local rangeLabel = towerPanel:WaitForChild("Range")
+local speedLabel = towerPanel:WaitForChild("Speed")
+local attackUpLabel = towerPanel:WaitForChild("AttackUp")
+local speedUpLabel = towerPanel:WaitForChild("SpeedUp")
+local rangeUpLabel = towerPanel:WaitForChild("RangeUp")
+local typeLabel = towerPanel:WaitForChild("Tpye")
+local tower3D = towerPanel:WaitForChild("Tower3D")
+local closePanel = towerPanel:WaitForChild("X")
+
 local selectedSlot = 0
+local selectedPlacedTower: Model? = nil
+
+local ButtonSFX = SoundService:WaitForChild("ButtonSFX")
+local HotbarSFX = SoundService:WaitForChild("HotbarSFX")
 
 local GameMap = workspace:WaitForChild("GameMapTemplat1")
 local PlacementZone = GameMap:WaitForChild("SpawnPoints")
@@ -31,10 +57,145 @@ local PlacementZone = GameMap:WaitForChild("SpawnPoints")
 local colorValid = Color3.fromRGB(0, 255, 100)
 local colorInvalid = Color3.fromRGB(255, 50, 50)
 
+towerPanel.Position = UDim2.new(-.3, 0, 0, 0)
+
 local SLOT_SELECTED_OFFSET = UDim2.new(0, 0, 0, -10) -- ขยับขึ้น 10px
+local PANEL_SELECTED_OFFSET = UDim2.new(.3, 0, 0, 0)
+local panelOriginalPosition = towerPanel.Position
 local slotOriginalPosition = {} -- เก็บ Position เดิมของแต่ละ Slot
 
 local rangeCircle: Part? = nil
+
+local function setupViewport(container, towerName: string)
+    if not container then return end
+
+    -- หา ViewportFrame ไม่ว่าจะส่งอะไรมา
+    local viewport
+    if container:IsA("ViewportFrame") then
+        viewport = container
+    else
+        local imageButton = container:FindFirstChildOfClass("ImageButton")
+        if imageButton then
+            viewport = imageButton:FindFirstChildOfClass("ViewportFrame")
+        end
+    end
+
+    if not viewport then return end
+
+    -- ล้างของเก่า
+    for _, child in viewport:GetChildren() do
+        if child:IsA("WorldModel") or child:IsA("Camera") then
+            child:Destroy()
+        end
+    end
+
+    local model = TowerModels:FindFirstChild(towerName)
+    if not model then return end
+
+    local config = TowerConfig[towerName]
+    local zoom = config and config.ViewportZoom or 1.2
+
+    task.spawn(function()
+        local worldModel = Instance.new("WorldModel")
+        worldModel.Parent = viewport
+
+        local clone = model:Clone()
+        clone.Parent = worldModel
+
+        task.wait(0.1)
+
+        local cf, size = clone:GetBoundingBox()
+        local distance = size.Magnitude * zoom
+
+        local viewportCamera = Instance.new("Camera")
+        viewportCamera.Parent = viewport
+        viewport.CurrentCamera = viewportCamera
+
+        local angleRad = math.rad(config and config.ViewportAngle or 45)
+        local yZoom = config and config.ViewportYZoom or 0.3
+
+        viewportCamera.CFrame = CFrame.new(
+            cf.Position + Vector3.new(
+                math.sin(angleRad) * distance,
+                size.Y * yZoom,
+                math.cos(angleRad) * distance
+            ),
+            cf.Position
+        )
+
+        local humanoid = clone:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            local animator = humanoid:FindFirstChildOfClass("Animator")
+            if animator then
+                local idleAnim = clone:FindFirstChild("IdleAnimation", true)
+                if idleAnim then
+                    local track = animator:LoadAnimation(idleAnim)
+                    track.Looped = true
+                    track.Priority = Enum.AnimationPriority.Idle
+                    track:Play()
+                end
+            end
+        end
+    end)
+end
+
+local function showTowerPanel(tower: Model)
+    selectedPlacedTower = tower
+
+    local towerName = tower:GetAttribute("TowerName") or "Unknown"
+    setupViewport(tower3D, towerName) -- เรียก setupViewport เดิม
+    local totalSpent = tower:GetAttribute("TotalSpent") or 0
+    local ownerId = tower:GetAttribute("OwnerId")
+    local currentLevel = tower:GetAttribute("Level") or 0
+    local isOwner = ownerId == player.UserId
+
+    local config = TowerConfig[towerName]
+    local upgradeData = UpgradeConfig[towerName]
+    local nextUpgrade = upgradeData and upgradeData[currentLevel + 1]
+
+    nameLabel.Text = tower:GetAttribute("DisplayName")
+    lvLabel.Text = "LV: " .. currentLevel
+    totalLabel.Text = "💰Total Spent: ".. totalSpent
+    
+    attackLabel.Text = "🗡️ATK: " .. (tower:GetAttribute("Damage") or "?")
+    rangeLabel.Text = "🎯RNG: " .. (tower:GetAttribute("Range") or "?")
+    speedLabel.Text = "⏳ATKSPD: " .. (tower:GetAttribute("Cooldown") or "?")
+
+    if nextUpgrade then
+        attackUpLabel.Text = "→ " .. nextUpgrade.Damage
+        rangeUpLabel.Text = "→ " .. nextUpgrade.Range
+        speedUpLabel.Text = "→ " .. nextUpgrade.Cooldown
+        upgradeButton.Upgrade.Text = "🚀Upgrade: " .. nextUpgrade.Cost
+    else
+        attackUpLabel.Text = "MAX"
+        rangeUpLabel.Text = "MAX"
+        speedUpLabel.Text = "MAX"
+        upgradeButton.Upgrade.Text = "Max Level"
+    end
+
+    local sellValue = math.floor(totalSpent * 0.6)
+    sellButton.Sell.Text = "💰Sell: " .. sellValue
+
+    sellButton.Active = isOwner
+    upgradeButton.Active = isOwner
+
+    TweenService:Create(
+    towerPanel,
+    TweenInfo.new(.5, Enum.EasingStyle.Quad),
+    { Position = panelOriginalPosition + PANEL_SELECTED_OFFSET }
+    ):Play()
+
+end
+
+local function hideTowerPanel()
+    selectedPlacedTower = nil
+    TweenService:Create(
+    towerPanel,
+    TweenInfo.new(.5, Enum.EasingStyle.Quad),
+    { Position = panelOriginalPosition }
+    ):Play()
+
+end
 
 local function animateSlot(slotIndex: number)
     for i = 1, 5 do
@@ -65,53 +226,6 @@ local function animateSlot(slotIndex: number)
             ):Play()
         end
     end
-end
-
-local function setupViewport(slot: Frame, towerName: string)
-    local imageButton = slot:FindFirstChildOfClass("ImageButton")
-    if not imageButton then return end
-
-    local viewport = imageButton:FindFirstChildOfClass("ViewportFrame")
-    if not viewport then return end
-
-    for _, child in viewport:GetChildren() do
-        if child:IsA("Model") or child:IsA("Camera") then
-            child:Destroy()
-        end
-    end
-
-    local model = TowerModels:FindFirstChild(towerName)
-    if not model then return end
-
-    local config = TowerConfig[towerName]
-    local zoom = config and config.ViewportZoom or 1.2 -- fallback ถ้าไม่มีค่า
-
-    local clone = model:Clone()
-    clone.Parent = viewport
-
-    local viewportCamera = Instance.new("Camera")
-    viewportCamera.Parent = viewport
-    viewport.CurrentCamera = viewportCamera
-
-    local cf, size = clone:GetBoundingBox()
-    local distance = size.Magnitude * zoom
-
-    -- หมุน Model ด้วย RunService
-    local angle = 0
-    game:GetService("RunService").RenderStepped:Connect(function(dt)
-        if not clone or not clone.Parent then return end
-
-        angle += dt * 60 -- ความเร็วหมุน องศาต่อวินาที ปรับได้
-
-        viewportCamera.CFrame = CFrame.new(
-            cf.Position + Vector3.new(
-                math.sin(math.rad(angle)) * distance,
-                size.Y * 0.3,
-                math.cos(math.rad(angle)) * distance
-            ),
-            cf.Position
-        )
-    end)
 end
 
 local function createRangeCircle(range: number) -- function ในการสร้าง part สำหรับเป็น indicator บอก ระยะ
@@ -189,6 +303,7 @@ local function highlightSlot(slotIndex: number)
             else Color3.fromRGB(50, 50, 50)   -- สีเทา = ปกติ
     end
     animateSlot(slotIndex)
+    HotbarSFX:Play()
 end
 
 local function clearPreview() -- function ที่ลบ preview model ออก
@@ -226,13 +341,16 @@ local function setupHotbar()
         local towerName = SlotConfig[i]
         local imageButton = slot:FindFirstChildOfClass("ImageButton")
         local costLabel = slot:FindFirstChild("ImageButton"):FindFirstChild("Cost")
+        local pfp = imageButton:FindFirstChild("Pfp")
 
         if towerName then
             local config = TowerConfig[towerName]
             if costLabel then
                 costLabel.Text = tostring(config.Cost)
             end
-            setupViewport(slot, towerName)
+            if pfp then
+                pfp.Image = config.Image or "rbxassetid://108735403983681"
+            end
         else
             if costLabel then costLabel.Text = "-" end
         end
@@ -314,7 +432,19 @@ RunService.RenderStepped:Connect(function()
             rangeCircle.CFrame = CFrame.new(placementPos) * CFrame.Angles(0, 0, math.rad(90))
         end
 
-        local inZone = hitPart:IsDescendantOf(PlacementZone)
+        local inZone = false
+
+        if hitPart:IsDescendantOf(PlacementZone) then
+            local zoneType = hitPart:GetAttribute("PlacementType")
+                or hitPart.Parent:GetAttribute("PlacementType")
+
+            local towerType = config and config.PlacementType or "Land"
+
+            if zoneType == towerType then
+                inZone = true
+            end
+        end
+
         local overlapping = isOverlapping(placementPos)
 
         if inZone and not overlapping then
@@ -350,3 +480,45 @@ for i = 1, 5 do
         createPreview(towerName)
     end)
 end
+
+mouse.Button1Down:Connect(function()
+    if selectedTower then return end
+
+    local target = mouse.Target
+    if not target then
+        hideTowerPanel()
+        return
+    end
+
+    local model = target:FindFirstAncestorOfClass("Model")
+    if model and model.Parent == workspace.PlacedTowers then
+        showTowerPanel(model)
+    else
+        hideTowerPanel()
+    end
+end)
+
+sellButton.MouseButton1Click:Connect(function()
+    if not selectedPlacedTower then return end
+    if not sellButton.Active then return end
+
+    SellTower:FireServer(selectedPlacedTower)
+    hideTowerPanel()
+end)
+
+upgradeButton.MouseButton1Click:Connect(function()
+    if not selectedPlacedTower then return end
+    if not upgradeButton.Active then return end
+
+    UpgradeTower:FireServer(selectedPlacedTower)
+
+    task.wait(.1)
+    if selectedPlacedTower and selectedPlacedTower.Parent then
+        showTowerPanel(selectedPlacedTower)
+    end
+
+end)
+
+closePanel.MouseButton1Click:Connect(function()
+    hideTowerPanel()
+end)
